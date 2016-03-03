@@ -3,7 +3,7 @@ var boot = function (done) {
         method: 'GET',
         url: '/apis/v/configs/boot',
         headers: {
-            'x-host': 'accounts.serandives.com'
+            'X-Host': 'accounts.serandives.com'
         },
         dataType: 'json',
         success: function (config) {
