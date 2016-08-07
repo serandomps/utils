@@ -1,10 +1,7 @@
 var configs = function (name, done) {
     $.ajax({
         method: 'GET',
-        url: '/apis/v/configs/' + name,
-        headers: {
-            'X-Host': 'accounts.serandives.com'
-        },
+        url: 'https://accounts.serandives.com/apis/v/configs/' + name,
         dataType: 'json',
         success: function (config) {
             done(false, config.value);
