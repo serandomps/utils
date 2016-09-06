@@ -1,7 +1,7 @@
-var configs = function (name, done) {
+exports.configs = function (name, done) {
     $.ajax({
         method: 'GET',
-        url: 'https://accounts.serandives.com/apis/v/configs/' + name,
+        url: exports.resolve('accounts://apis/v/configs/' + name),
         dataType: 'json',
         success: function (config) {
             done(false, config.value);
@@ -13,10 +13,21 @@ var configs = function (name, done) {
     });
 };
 
-var id = function () {
+exports.id = function () {
     return Math.random().toString(36).slice(2);
 };
 
-module.exports.configs = configs;
-
-module.exports.id = id;
+exports.resolve = function (url) {
+    var protocol = url.match(/.*?:\/\//g);
+    if (!protocol) {
+        return url;
+    }
+    protocol = protocol[0];
+    if (protocol === 'https://' || protocol === 'http://') {
+        return url;
+    }
+    var server = $('#content').data('server');
+    var sub = protocol.replace('://', '');
+    var suffix = url.substring(protocol.length);
+    return server.replace('{sub}', sub) + '/' + suffix;
+};
