@@ -1,3 +1,20 @@
+var syncs = {};
+
+exports.sync = function (id, run, done) {
+    if (syncs[id]) {
+        return syncs[id].push(done);
+    }
+    syncs[id] = [done];
+    run(function () {
+        var args = Array.prototype.slice.call(arguments);
+        var o = syncs[id];
+        delete syncs[id];
+        o.forEach(function (done) {
+            done.apply(null, args);
+        });
+    });
+};
+
 exports.configs = function (name, done) {
     $.ajax({
         method: 'GET',
