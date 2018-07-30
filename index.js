@@ -53,11 +53,10 @@ exports.configs = function (name, done) {
             url: exports.resolve('accounts://apis/v/configs/' + name),
             dataType: 'json',
             success: function (config) {
-                ran(false, config.value);
+                ran(null, config.value);
             },
-            error: function () {
-                console.log('error retrieving ' + name);
-                ran('error retrieving ' + name + ' configuration');
+            error: function (xhr, status, err) {
+                ran(err || status || xhr);
             }
         });
     }, done);
