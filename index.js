@@ -50,7 +50,7 @@ exports.configs = function (name, done) {
     exports.sync('configs:' + name, function (ran) {
         $.ajax({
             method: 'GET',
-            url: exports.resolve('accounts://apis/v/configs/' + name),
+            url: exports.resolve('accounts:///apis/v/configs/' + name),
             dataType: 'json',
             success: function (config) {
                 ran(null, config.value);
@@ -82,7 +82,7 @@ exports.resolve = function (url) {
     var server = $('#content').data('server');
     var sub = protocol.replace('://', '');
     var suffix = url.substring(protocol.length);
-    return server.replace('{sub}', sub) + '/' + suffix;
+    return server.replace('{sub}', sub) + suffix;
 };
 
 var event = function (listeners, event) {
