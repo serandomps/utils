@@ -4,7 +4,5 @@
     "local": [],
     "scripts": ["index.js", "permissions.js"],
     "main": "index.js",
-    "dependencies": {
-        "serandomps/serand": "master"
-    }
+    "dependencies": {}
 }

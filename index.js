@@ -128,3 +128,25 @@ EventEmitter.prototype.emit = function (name, data) {
 exports.eventer = function () {
     return new EventEmitter();
 };
+
+exports.query = function (options) {
+    if (!options) {
+        return '';
+    }
+    var data = {
+        query: {}
+    };
+    var name;
+    var value;
+    for (name in options) {
+        if (!options.hasOwnProperty(name)) {
+            continue;
+        }
+        if (name === '_') {
+            continue;
+        }
+        value = options[name];
+        data.query[name] = value instanceof Array ? {$in: value} : value;
+    }
+    return '?data=' + JSON.stringify(data);
+};
