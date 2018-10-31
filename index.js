@@ -48,9 +48,13 @@ exports.sync = function (id, run, done) {
 
 exports.configs = function (name, done) {
     exports.sync('configs:' + name, function (ran) {
+        var config = sera.configs[name];
+        if (typeof config !== 'string' && !(config instanceof String)) {
+            return ran(null, config);
+        }
         $.ajax({
             method: 'GET',
-            url: exports.resolve('accounts:///apis/v/configs/' + name),
+            url: exports.resolve('accounts:///apis/v/configs/' + config),
             dataType: 'json',
             success: function (config) {
                 ran(null, config.value);
@@ -79,7 +83,7 @@ exports.resolve = function (url) {
     if (protocol === 'https://' || protocol === 'http://') {
         return url;
     }
-    var server = $('#content').data('server');
+    var server = sera.server;
     var sub = protocol.replace('://', '');
     var suffix = url.substring(protocol.length);
     return server.replace('{sub}', sub) + suffix;
@@ -149,4 +153,14 @@ exports.query = function (options) {
         data.query[name] = value instanceof Array ? {$in: value} : value;
     }
     return '?data=' + JSON.stringify(data);
+};
+
+exports.cdn = function (type, path, done) {
+    exports.configs('boot', function (err, config) {
+        if (err) {
+            return done(err);
+        }
+        var cdns = config.cdns;
+        done(null, cdns[type] + path);
+    });
 };
