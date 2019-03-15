@@ -46,6 +46,25 @@ exports.sync = function (id, run, done) {
     });
 };
 
+exports.url = function () {
+    return window.location.href;
+};
+
+exports.query = function (url, o) {
+    var suffix = '';
+    Object.keys(o).forEach(function (name) {
+        if (suffix) {
+            suffix += '&';
+        }
+        suffix += name + '=' + encodeURIComponent(o[name]);
+    });
+    if (!suffix) {
+        return url;
+    }
+    url += url.indexOf('?') === -1 ? '?' + suffix : '&' + suffix;
+    return url;
+};
+
 exports.configs = function (name, done) {
     exports.sync('configs:' + name, function (ran) {
         var config = sera.configs[name];
@@ -75,7 +94,7 @@ exports.clone = function (o) {
 };
 
 exports.resolve = function (url) {
-    var protocol = url.match(/.*?:\/\//g);
+    var protocol = url.match(/^[A-Za-z]*?:\/\//g);
     if (!protocol) {
         return url;
     }
@@ -133,7 +152,7 @@ exports.eventer = function () {
     return new EventEmitter();
 };
 
-exports.query = function (options) {
+exports.data = function (options) {
     if (!options) {
         return '';
     }
