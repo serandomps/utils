@@ -157,18 +157,21 @@ exports.data = function (options) {
         return '';
     }
     var data = {
-        query: {}
+        query: {},
+        sort: options.sort,
+        count: options.count
     };
     var name;
     var value;
-    for (name in options) {
-        if (!options.hasOwnProperty(name)) {
+    var query = options.query || {};
+    for (name in query) {
+        if (!query.hasOwnProperty(name)) {
             continue;
         }
         if (name === '_') {
             continue;
         }
-        value = options[name];
+        value = query[name];
         data.query[name] = value instanceof Array ? {$in: value} : value;
     }
     return '?data=' + JSON.stringify(data);
