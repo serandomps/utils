@@ -186,3 +186,37 @@ exports.cdn = function (type, path, done) {
         done(null, cdns[type] + path);
     });
 };
+
+var to = function (o) {
+    var oo = {};
+    Object.keys(o).forEach(function (name) {
+        oo[name.replace(/-/g, ':')] = o[name];
+    });
+    return oo;
+};
+
+exports.toQuery = function (options) {
+    var name;
+    var value;
+    var q = '';
+    var i;
+    options = to(options);
+    for (name in options) {
+        if (!options.hasOwnProperty(name)) {
+            continue;
+        }
+        if (name === '_') {
+            continue;
+        }
+        value = options[name];
+        if (!value) {
+            continue;
+        }
+        value = value instanceof Array ? value : [value];
+        for (i = 0; i < value.length; i++) {
+            q += q ? '&' : '';
+            q += name + '=' + value[i];
+        }
+    }
+    return q ? '?' + q : '';
+};
