@@ -220,3 +220,77 @@ exports.toQuery = function (options) {
     }
     return q ? '?' + q : '';
 };
+
+exports.groups = function () {
+    return _.keyBy(sera.configs.groups, 'name');
+};
+
+var visible = function (o, group) {
+    var all = o.visibility['*'].groups;
+    if (all.indexOf(group) !== -1) {
+        return;
+    }
+    all.push(group);
+};
+
+var invisible = function (o, group) {
+    var all = o.visibility['*'].groups;
+    var index = all.indexOf(group);
+    if (index === -1) {
+        return;
+    }
+    all.splice(index, 1);
+};
+
+var readable = function (o, group) {
+    var permsByGroup = _.keyBy(_.filter(o.permissions, 'group'), 'group');
+    var permGroup = permsByGroup[group];
+    if (!permGroup) {
+        return o.permissions.push({
+            group: group,
+            actions: ['read']
+        });
+    }
+    var actions = permGroup.actions;
+    var index = actions.indexOf('read');
+    if (index !== -1) {
+        return;
+    }
+    actions.push('read');
+};
+
+var unreadable = function (o, group) {
+    var permsByGroup = _.keyBy(_.filter(o.permissions, 'group'), 'group');
+    var permGroup = permsByGroup[group];
+    if (!permGroup) {
+        return;
+    }
+    var actions = permGroup.actions;
+    var index = actions.indexOf('read');
+    if (index === -1) {
+        return;
+    }
+    actions.splice(index, 1);
+    if (actions.length) {
+        return;
+    }
+    o.permissions.splice(o.permissions.indexOf(permGroup), 1);
+};
+
+exports.publish = function (o, done) {
+    var groups = exports.groups();
+    readable(o, groups.anonymous.id);
+    readable(o, groups.public.id);
+    visible(o, groups.anonymous.id);
+    visible(o, groups.public.id);
+    done(null, o);
+};
+
+exports.unpublish = function (o, done) {
+    var groups = exports.groups();
+    unreadable(o, groups.anonymous.id);
+    unreadable(o, groups.public.id);
+    invisible(o, groups.anonymous.id);
+    invisible(o, groups.public.id);
+    done(null, o);
+};
