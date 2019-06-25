@@ -1,5 +1,28 @@
 var syncs = {};
 
+var workflows = {
+    model: {
+        editing: {
+            review: 'reviewing'
+        },
+        reviewing: {
+            approve: 'unpublished',
+            reject: 'editing'
+        },
+        published: {
+            unpublish: 'unpublished'
+        },
+        unpublished: {
+            publish: 'published',
+            edit: 'editing'
+        }
+    }
+};
+
+exports.workflow = function (name, done) {
+    done(null, workflows[name]);
+};
+
 exports.format = function (str) {
     var re = /(%?)(%([jds]))/g;
     var args = Array.prototype.slice.call(arguments, 1);
