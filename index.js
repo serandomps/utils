@@ -19,6 +19,85 @@ var workflows = {
     }
 };
 
+var workflows = {
+    model: {
+        transitions: {
+            editing: {
+                review: 'reviewing'
+            },
+            reviewing: {
+                approve: 'unpublished',
+                reject: 'editing'
+            },
+            published: {
+                unpublish: 'unpublished'
+            },
+            unpublished: {
+                publish: 'published',
+                edit: 'editing'
+            }
+        },
+        permits: {
+            editing: {
+                groups: {
+                    admin: {
+                        actions: ['*'],
+                        visibility: ['*']
+                    }
+                },
+                user: {
+                    actions: ['read', 'update', 'delete', 'review'],
+                    visibility: ['*']
+                }
+            },
+            reviewing: {
+                groups: {
+                    admin: {
+                        actions: ['*'],
+                        visibility: ['*']
+                    }
+                },
+                user: {
+                    actions: ['read', 'delete'],
+                    visibility: ['*']
+                }
+            },
+            published: {
+                groups: {
+                    admin: {
+                        actions: ['*'],
+                        visibility: ['*']
+                    },
+                    public: {
+                        actions: ['read'],
+                        visibility: ['*']
+                    },
+                    anonymous: {
+                        actions: ['read'],
+                        visibility: ['*']
+                    }
+                },
+                user: {
+                    actions: ['read', 'unpublish'],
+                    visibility: ['*']
+                }
+            },
+            unpublished: {
+                groups: {
+                    admin: {
+                        actions: ['*'],
+                        visibility: ['*']
+                    }
+                },
+                user: {
+                    actions: ['read', 'delete', 'publish', 'edit'],
+                    visibility: ['*']
+                }
+            }
+        }
+    }
+};
+
 exports.workflow = function (name, done) {
     done(null, workflows[name]);
 };
@@ -195,7 +274,7 @@ exports.data = function (options) {
             continue;
         }
         value = query[name];
-        data.query[name] = value instanceof Array ? {$in: value} : value;
+        data.query[name] = value;
     }
     return '?data=' + JSON.stringify(data);
 };
@@ -316,4 +395,42 @@ exports.unpublish = function (o, done) {
     invisible(o, groups.anonymous.id);
     invisible(o, groups.public.id);
     done(null, o);
+};
+
+exports.permitted = function (user, o, action) {
+    var groups = user.groups;
+    var permissions = o.permissions || [];
+    var allowed = {
+        groups: [],
+        users: []
+    };
+    permissions.forEach(function (perm) {
+        var actions = perm.actions || [];
+        if (actions.indexOf(action) === -1 && actions.indexOf('*') === -1) {
+            return;
+        }
+        if (perm.group) {
+            return allowed.groups.push(perm.group);
+        }
+        if (perm.user) {
+            return allowed.users.push(perm.user);
+        }
+    });
+    if (allowed.users.indexOf(user.id) !== -1) {
+        return true;
+    }
+    var i;
+    var group;
+    var length = groups.length;
+    for (i = 0; i < length; i++) {
+        group = groups[i];
+        if (allowed.groups.indexOf(group) !== -1) {
+            return true;
+        }
+    }
+    return false;
+};
+
+exports.json = function (o) {
+    return JSON.parse(o);
 };
