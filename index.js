@@ -2,25 +2,6 @@ var syncs = {};
 
 var workflows = {
     model: {
-        editing: {
-            review: 'reviewing'
-        },
-        reviewing: {
-            approve: 'unpublished',
-            reject: 'editing'
-        },
-        published: {
-            unpublish: 'unpublished'
-        },
-        unpublished: {
-            publish: 'published',
-            edit: 'editing'
-        }
-    }
-};
-
-var workflows = {
-    model: {
         transitions: {
             editing: {
                 review: 'reviewing'
@@ -398,6 +379,9 @@ exports.unpublish = function (o, done) {
 };
 
 exports.permitted = function (user, o, action) {
+    if (!user) {
+        return false;
+    }
     var groups = user.groups;
     var permissions = o.permissions || [];
     var allowed = {
@@ -433,4 +417,25 @@ exports.permitted = function (user, o, action) {
 
 exports.json = function (o) {
     return JSON.parse(o);
+};
+
+exports.transit = function (domain, model, id, action, done) {
+    $.ajax({
+        method: 'POST',
+        url: exports.resolve(domain + ':///apis/v/' + model + '/' + id),
+        headers: {
+            'X-Action': 'transit'
+        },
+        contentType: 'application/json',
+        data: JSON.stringify({
+            action: action
+        }),
+        dataType: 'json',
+        success: function (data) {
+            done(null, data);
+        },
+        error: function (xhr, status, err) {
+            done(err || status || xhr);
+        }
+    });
 };
