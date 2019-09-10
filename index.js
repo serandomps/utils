@@ -360,24 +360,6 @@ var unreadable = function (o, group) {
     o.permissions.splice(o.permissions.indexOf(permGroup), 1);
 };
 
-exports.publish = function (o, done) {
-    var groups = exports.groups();
-    readable(o, groups.anonymous.id);
-    readable(o, groups.public.id);
-    visible(o, groups.anonymous.id);
-    visible(o, groups.public.id);
-    done(null, o);
-};
-
-exports.unpublish = function (o, done) {
-    var groups = exports.groups();
-    unreadable(o, groups.anonymous.id);
-    unreadable(o, groups.public.id);
-    invisible(o, groups.anonymous.id);
-    invisible(o, groups.public.id);
-    done(null, o);
-};
-
 exports.permitted = function (user, o, action) {
     if (!user) {
         return false;
@@ -438,4 +420,139 @@ exports.transit = function (domain, model, id, action, done) {
             done(err || status || xhr);
         }
     });
+};
+
+exports.publish = function (domain, model, o, done) {
+    var status = o.status;
+    if (status === 'published' || status === 'unpublished') {
+        return done();
+    }
+    if (status === 'editing') {
+        exports.transit(domain, model, o.id, 'review', function (err) {
+            if (err) {
+                return done(err);
+            }
+            o.status = 'reviewing';
+            exports.transit(domain, model, o.id, 'approve', function (err) {
+                if (err) {
+                    return done(err);
+                }
+                o.status = 'unpublished';
+                exports.transit(domain, model, o.id, 'publish', function (err) {
+                    if (err) {
+                        return done(err);
+                    }
+                    o.status = 'published';
+                    done();
+                });
+            });
+        });
+        return;
+    }
+    if (status === 'reviewing') {
+        exports.transit(domain, model, o.id, 'approve', function (err) {
+            if (err) {
+                return done(err);
+            }
+            o.status = 'unpublished';
+            exports.transit(domain, model, o.id, 'publish', function (err) {
+                if (err) {
+                    return done(err);
+                }
+                o.status = 'published';
+                done();
+            });
+        });
+        return;
+    }
+    done(new Error('An unknown status ' + status));
+};
+
+exports.edit = function (domain, model, o, done) {
+    var status = o.status;
+    if (status === 'edit') {
+        return done();
+    }
+    if (status === 'published') {
+        exports.transit(domain, model, o.id, 'unpublish', function (err) {
+            if (err) {
+                return done(err);
+            }
+            o.status = 'unpublished';
+            exports.transit(domain, model, o.id, 'edit', function (err) {
+                if (err) {
+                    return done(err);
+                }
+                o.status = 'editing';
+                done();
+            });
+        });
+        return;
+    }
+    if (status === 'unpublished') {
+        return exports.transit(domain, model, o.id, 'edit', function (err) {
+            if (err) {
+                return done(err);
+            }
+            o.status = 'editing';
+            done();
+        });
+    }
+    done(new Error('An unknown status ' + status));
+};
+
+exports.review = function (domain, model, o, done) {
+    var status = o.status;
+    if (status === 'editing') {
+        return exports.transit(domain, model, o.id, 'review', function (err) {
+            if (err) {
+                return done(err);
+            }
+            o.status = 'reviewing';
+            done();
+        });
+    }
+    done(new Error('An unknown status ' + status));
+};
+
+exports.create = function (domain, model, creator, found, o, done) {
+    if (!found || found.status === 'editing') {
+        return creator(o, function (err) {
+            if (err) {
+                return done(err);
+            }
+            exports.review('accounts', 'contacts', found, done);
+        });
+    }
+    if (found.status === 'published') {
+        // unpublish, edit, update and review
+        exports.edit(domain, model, found, function (err) {
+            if (err) {
+                return done(err);
+            }
+            creator(o, function (err) {
+                if (err) {
+                    return done(err);
+                }
+                exports.review(domain, model, found, done);
+            });
+        });
+        return;
+    }
+    if (found.status === 'unpublished') {
+        // edit, update and review
+        exports.edit(domain, model, found, function (err) {
+            if (err) {
+                return done(err);
+            }
+            creator(o, function (err) {
+                if (err) {
+                    return done(err);
+                }
+                exports.review(domain, model, found, done);
+            });
+        });
+        return;
+    }
+    done(new Error('Not allowed to edit the contact'));
 };
