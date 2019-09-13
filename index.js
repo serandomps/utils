@@ -79,6 +79,8 @@ var workflows = {
     }
 };
 
+var subdomain;
+
 exports.workflow = function (name, done) {
     done(null, workflows[name]);
 };
@@ -176,8 +178,38 @@ exports.clone = function (o) {
     return JSON.parse(JSON.stringify(o));
 };
 
+exports.client = function (name, done) {
+    exports.configs('boot', function (err, config) {
+        if (err) {
+            return done(err);
+        }
+        var clients = config.clients;
+        var client = clients[name];
+        if (!client) {
+            return done();
+        }
+        done(null, client);
+    });
+};
+
+exports.subdomain = function () {
+    if (subdomain) {
+        return subdomain;
+    }
+    var url = exports.origin();
+    url = url.substring(url.indexOf('://') + 3);
+    url = url.substring(0, url.lastIndexOf('.'));
+    subdomain = url.substring(0, url.lastIndexOf('.'));
+    return subdomain;
+};
+
+exports.origin = function (url) {
+    url = url || exports.url();
+    return url.match(/^(?:https?:)?(?:\/\/)?([^\/\?]+)/img)[0];
+};
+
 exports.resolve = function (url) {
-    var protocol = url.match(/^[A-Za-z]*?:\/\//g);
+    var protocol = url.match(/^[A-Za-z.]*?:\/\//g);
     if (!protocol) {
         return url;
     }
@@ -185,10 +217,14 @@ exports.resolve = function (url) {
     if (protocol === 'https://' || protocol === 'http://') {
         return url;
     }
-    var server = sera.server;
-    var sub = protocol.replace('://', '');
+    var subdomain = protocol.replace('://', '');
     var suffix = url.substring(protocol.length);
-    return server.replace('{sub}', sub) + suffix;
+    if (subdomain === '.') {
+        return exports.origin() + suffix;
+    }
+    var server = sera.server;
+    subdomain += subdomain ? '.' : '';
+    return server.replace('{subdomain}', subdomain) + suffix;
 };
 
 var event = function (listeners, event) {
@@ -306,58 +342,6 @@ exports.toQuery = function (options) {
 
 exports.groups = function () {
     return _.keyBy(sera.configs.groups, 'name');
-};
-
-var visible = function (o, group) {
-    var all = o.visibility['*'].groups;
-    if (all.indexOf(group) !== -1) {
-        return;
-    }
-    all.push(group);
-};
-
-var invisible = function (o, group) {
-    var all = o.visibility['*'].groups;
-    var index = all.indexOf(group);
-    if (index === -1) {
-        return;
-    }
-    all.splice(index, 1);
-};
-
-var readable = function (o, group) {
-    var permsByGroup = _.keyBy(_.filter(o.permissions, 'group'), 'group');
-    var permGroup = permsByGroup[group];
-    if (!permGroup) {
-        return o.permissions.push({
-            group: group,
-            actions: ['read']
-        });
-    }
-    var actions = permGroup.actions;
-    var index = actions.indexOf('read');
-    if (index !== -1) {
-        return;
-    }
-    actions.push('read');
-};
-
-var unreadable = function (o, group) {
-    var permsByGroup = _.keyBy(_.filter(o.permissions, 'group'), 'group');
-    var permGroup = permsByGroup[group];
-    if (!permGroup) {
-        return;
-    }
-    var actions = permGroup.actions;
-    var index = actions.indexOf('read');
-    if (index === -1) {
-        return;
-    }
-    actions.splice(index, 1);
-    if (actions.length) {
-        return;
-    }
-    o.permissions.splice(o.permissions.indexOf(permGroup), 1);
 };
 
 exports.permitted = function (user, o, action) {
