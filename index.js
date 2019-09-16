@@ -81,6 +81,57 @@ var workflows = {
 
 var subdomain;
 
+var listeners = {};
+
+var event = function (channel, event) {
+    channel = listeners[channel] || (listeners[channel] = {});
+    return channel[event] || (channel[event] = {on: [], once: []});
+};
+
+/**
+ * Registers an event listner for the specified channel
+ * @param ch channel name
+ * @param e event name
+ * @param done event callback
+ */
+module.exports.on = function (ch, e, done) {
+    event(ch, e).on.push(done);
+};
+
+module.exports.once = function (ch, e, done) {
+    event(ch, e).once.push(done);
+};
+
+module.exports.off = function (ch, e, done) {
+    var arr = event(ch, e);
+    var idx = arr.on.indexOf(done);
+    if (idx !== -1) {
+        arr.on.splice(idx, 1);
+    }
+    idx = arr.once.indexOf(done);
+    if (idx !== -1) {
+        arr.once.splice(idx, 1);
+    }
+};
+
+/**
+ * Emits the specified event on the specified channel
+ * @param ch channel name
+ * @param e event name
+ * @param data event data
+ */
+module.exports.emit = function (ch, e, data) {
+    var o = event(ch, e);
+    var args = Array.prototype.slice.call(arguments, 2);
+    o.on.forEach(function (done) {
+        done.apply(done, args);
+    });
+    o.once.forEach(function (done) {
+        done.apply(done, args);
+    });
+    o.once = [];
+};
+
 exports.workflow = function (name, done) {
     done(null, workflows[name]);
 };
@@ -227,7 +278,7 @@ exports.resolve = function (url) {
     return server.replace('{subdomain}', subdomain) + suffix;
 };
 
-var event = function (listeners, event) {
+var emitterEvent = function (listeners, event) {
     return listeners[event] || (listeners[event] = {on: [], once: []});
 };
 
@@ -236,15 +287,15 @@ var EventEmitter = function () {
 };
 
 EventEmitter.prototype.on = function (name, fn) {
-    event(this.listeners, name).on.push(fn);
+    emitterEvent(this.listeners, name).on.push(fn);
 };
 
 EventEmitter.prototype.once = function (name, fn) {
-    event(this.listeners, name).once.push(fn);
+    emitterEvent(this.listeners, name).once.push(fn);
 };
 
 EventEmitter.prototype.off = function (name, fn) {
-    var arr = event(this.listeners, name);
+    var arr = emitterEvent(this.listeners, name);
     var idx = arr.on.indexOf(fn);
     if (idx !== -1) {
         arr.on.splice(idx, 1);
@@ -256,7 +307,7 @@ EventEmitter.prototype.off = function (name, fn) {
 };
 
 EventEmitter.prototype.emit = function (name, data) {
-    var o = event(this.listeners, name);
+    var o = emitterEvent(this.listeners, name);
     var args = Array.prototype.slice.call(arguments, 1);
     o.on.forEach(function (fn) {
         fn.apply(fn, args);
@@ -385,6 +436,16 @@ exports.json = function (o) {
     return JSON.parse(o);
 };
 
+exports.loading = function (delay) {
+    exports.emit('loader', 'start', {
+        delay: delay || 500
+    });
+};
+
+exports.loaded = function () {
+    exports.emit('loader', 'end', {});
+};
+
 exports.transit = function (domain, model, id, action, done) {
     $.ajax({
         method: 'POST',
@@ -501,11 +562,16 @@ exports.review = function (domain, model, o, done) {
 
 exports.create = function (domain, model, creator, found, o, done) {
     if (!found || found.status === 'editing') {
-        return creator(o, function (err) {
+        return creator(o, function (err, data) {
             if (err) {
                 return done(err);
             }
-            exports.review('accounts', 'contacts', found, done);
+            exports.review('accounts', 'contacts', data, function (err) {
+                if (err) {
+                    return done(err);
+                }
+                done(null, data);
+            });
         });
     }
     if (found.status === 'published') {
@@ -514,11 +580,16 @@ exports.create = function (domain, model, creator, found, o, done) {
             if (err) {
                 return done(err);
             }
-            creator(o, function (err) {
+            creator(o, function (err, data) {
                 if (err) {
                     return done(err);
                 }
-                exports.review(domain, model, found, done);
+                exports.review(domain, model, data, function (err) {
+                    if (err) {
+                        return done(err);
+                    }
+                    done(null, data);
+                });
             });
         });
         return;
@@ -529,11 +600,16 @@ exports.create = function (domain, model, creator, found, o, done) {
             if (err) {
                 return done(err);
             }
-            creator(o, function (err) {
+            creator(o, function (err, data) {
                 if (err) {
                     return done(err);
                 }
-                exports.review(domain, model, found, done);
+                exports.review(domain, model, data, function (err) {
+                    if (err) {
+                        return done(err);
+                    }
+                    done(null, data);
+                });
             });
         });
         return;
