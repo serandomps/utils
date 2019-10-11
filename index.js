@@ -221,6 +221,10 @@ exports.configs = function (name, done) {
     }, done);
 };
 
+exports.menus = function (name, done) {
+    exports.configs('menus-' + name, done);
+};
+
 exports.id = function () {
     return Math.random().toString(36).slice(2);
 };
@@ -320,6 +324,15 @@ EventEmitter.prototype.emit = function (name, data) {
 
 exports.eventer = function () {
     return new EventEmitter();
+};
+
+exports.alias = function (path, done) {
+    exports.configs('aliases', function (err, aliases) {
+        if (err) {
+            return done(err);
+        }
+        done(null, aliases[path]);
+    });
 };
 
 exports.data = function (options) {
@@ -442,6 +455,10 @@ exports.loading = function (delay) {
     });
 };
 
+exports.is = function (group) {
+    return sera.is(group);
+};
+
 exports.loaded = function () {
     exports.emit('loader', 'end', {});
 };
@@ -543,6 +560,15 @@ exports.edit = function (domain, model, o, done) {
             done();
         });
     }
+    if (status === 'reviewing') {
+        return exports.transit(domain, model, o.id, 'reject', function (err) {
+            if (err) {
+                return done(err);
+            }
+            o.status = 'editing';
+            done();
+        });
+    }
     done(new Error('An unknown status ' + status));
 };
 
@@ -566,7 +592,7 @@ exports.create = function (domain, model, creator, found, o, done) {
             if (err) {
                 return done(err);
             }
-            exports.review('accounts', 'contacts', data, function (err) {
+            exports.review(domain, model, data, function (err) {
                 if (err) {
                     return done(err);
                 }
@@ -574,45 +600,105 @@ exports.create = function (domain, model, creator, found, o, done) {
             });
         });
     }
-    if (found.status === 'published') {
-        // unpublish, edit, update and review
-        exports.edit(domain, model, found, function (err) {
+    exports.edit(domain, model, found, function (err) {
+        if (err) {
+            return done(err);
+        }
+        creator(o, function (err, data) {
             if (err) {
                 return done(err);
             }
-            creator(o, function (err, data) {
+            exports.review(domain, model, data, function (err) {
                 if (err) {
                     return done(err);
                 }
-                exports.review(domain, model, data, function (err) {
-                    if (err) {
-                        return done(err);
-                    }
-                    done(null, data);
-                });
+                done(null, data);
+            });
+        });
+    });
+};
+
+exports.traverse = function (domain, model, actions, found, o, done) {
+    if (!found) {
+        o.creator(function (err, found) {
+            if (err) {
+                return done(err);
+            }
+            exports.traverse(domain, model, actions, found, o, done);
+        });
+        return;
+    }
+    if (!actions.length) {
+        return done(null, found);
+    }
+    var action = actions.shift();
+    if (action === 'edit') {
+        exports.transit(domain, model, found.id, 'edit', function (err) {
+            if (err) {
+                return done(err);
+            }
+            found.status = 'editing';
+            if (!o.creator) {
+                return exports.traverse(domain, model, actions, found, o, done);
+            }
+            o.creator(function (err, found) {
+                if (err) {
+                    return done(err);
+                }
+                exports.traverse(domain, model, actions, found, o, done);
             });
         });
         return;
     }
-    if (found.status === 'unpublished') {
-        // edit, update and review
-        exports.edit(domain, model, found, function (err) {
+    if (action === 'review') {
+        exports.transit(domain, model, found.id, 'review', function (err) {
             if (err) {
                 return done(err);
             }
-            creator(o, function (err, data) {
-                if (err) {
-                    return done(err);
-                }
-                exports.review(domain, model, data, function (err) {
-                    if (err) {
-                        return done(err);
-                    }
-                    done(null, data);
-                });
-            });
+            found.status = 'reviewing';
+            exports.traverse(domain, model, actions, found, o, done);
         });
         return;
     }
-    done(new Error('Not allowed to edit the contact'));
+    if (action === 'reject') {
+        exports.transit(domain, model, found.id, 'reject', function (err) {
+            if (err) {
+                return done(err);
+            }
+            found.status = 'editing';
+            exports.traverse(domain, model, actions, found, o, done);
+        });
+        return;
+    }
+    if (action === 'approve') {
+        exports.transit(domain, model, found.id, 'approve', function (err) {
+            if (err) {
+                return done(err);
+            }
+            found.status = 'unpublished';
+            exports.traverse(domain, model, actions, found, o, done);
+        });
+        return;
+    }
+    if (action === 'unpublish') {
+        exports.transit(domain, model, found.id, 'unpublish', function (err) {
+            if (err) {
+                return done(err);
+            }
+            found.status = 'unpublished';
+            exports.traverse(domain, model, actions, found, o, done);
+        });
+        return;
+    }
+    if (action === 'publish') {
+        exports.transit(domain, model, found.id, 'publish', function (err) {
+            if (err) {
+                return done(err);
+            }
+            found.status = 'published';
+            exports.traverse(domain, model, actions, found, o, done);
+        });
+        return;
+    }
+    done(new Error('Unknown action ' + action));
 };
