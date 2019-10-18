@@ -360,6 +360,40 @@ exports.data = function (options) {
     return '?data=' + JSON.stringify(data);
 };
 
+exports.link = function (link) {
+    var o = {};
+    var regex = /<([^>]+)>; rel="([^"]+)"/g;
+    var m = regex.exec(link);
+    while (m) {
+        o[m[2]] = m[1];
+        m = regex.exec(link);
+    }
+    return o;
+};
+
+var next = function (o, url, done) {
+    $.ajax({
+        method: 'GET',
+        url: url,
+        dataType: 'json',
+        success: function (data, status, xhr) {
+            o = o.concat(data);
+            var link = exports.link(xhr.getResponseHeader('Link'));
+            if (!link || !link.next) {
+                return done(null, o);
+            }
+            next(o, link.next, done);
+        },
+        error: function (xhr, status, err) {
+            done(err || status || xhr);
+        }
+    });
+};
+
+exports.all = function (url, done) {
+    next([], url, done);
+};
+
 exports.cdn = function (type, path, done) {
     exports.configs('boot', function (err, config) {
         if (err) {
