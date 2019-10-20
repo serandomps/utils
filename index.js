@@ -203,13 +203,20 @@ exports.query = function (url, o) {
 
 exports.configs = function (name, done) {
     exports.sync('configs:' + name, function (ran) {
-        var config = sera.configs[name];
-        if (typeof config !== 'string' && !(config instanceof String)) {
-            return ran(null, config);
+        var configs = sera.configs;
+        var values = configs.values;
+        var value = values[name];
+        if (value) {
+            return ran(null, value);
+        }
+        var ids = configs.ids;
+        var id = ids[name];
+        if (!id) {
+            return ran();
         }
         $.ajax({
             method: 'GET',
-            url: exports.resolve('accounts:///apis/v/configs/' + config),
+            url: exports.resolve('accounts:///apis/v/configs/' + id),
             dataType: 'json',
             success: function (config) {
                 ran(null, config.value);
@@ -439,7 +446,7 @@ exports.toQuery = function (options) {
 };
 
 exports.groups = function () {
-    return _.keyBy(sera.configs.groups, 'name');
+    return _.keyBy(sera.configs.values.groups, 'name');
 };
 
 exports.permitted = function (user, o, action) {
