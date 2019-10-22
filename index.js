@@ -39,7 +39,7 @@ var workflows = {
                     }
                 },
                 user: {
-                    actions: ['read', 'delete'],
+                    actions: ['read', 'delete', 'reject'],
                     visibility: ['*']
                 }
             },
