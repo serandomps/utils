@@ -419,6 +419,35 @@ var to = function (o) {
     return oo;
 };
 
+exports.initials = function (text, max) {
+    if (!text) {
+        return '';
+    }
+    max = max || 3;
+    var i;
+    var part;
+    var initials = '';
+    var parts = text.toUpperCase().match(/\S+/g);
+    var length = parts.length;
+    for (i = 0; i < length; i++) {
+        part = parts[i];
+        initials += part.charAt(0);
+        if (i < max - 1) {
+            continue;
+        }
+        return initials;
+    }
+    if (initials.length > 1) {
+        return initials;
+    }
+    text = parts[parts.length - 1];
+    length = max < text.length ? max : text.length;
+    for (i = 1; i < length; i++) {
+        initials += text.charAt(i);
+    }
+    return initials;
+};
+
 exports.toQuery = function (options) {
     var name;
     var value;
@@ -442,7 +471,7 @@ exports.toQuery = function (options) {
             q += name + '=' + value[i];
         }
     }
-    return q ? '?' + q : '';
+    return q || '';
 };
 
 exports.groups = function () {
