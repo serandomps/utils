@@ -1,3 +1,5 @@
+var BUMP_UP_THRESHOLD = 14 * 24 * 60 * 60 * 1000;
+
 var syncs = {};
 
 var workflows = {
@@ -531,6 +533,27 @@ exports.is = function (group) {
 
 exports.loaded = function () {
     exports.emit('loader', 'end', {});
+};
+
+exports.bumpable = function (o) {
+    return Date.now() - new Date(o.updatedAt) >= BUMP_UP_THRESHOLD;
+};
+
+exports.bumpup = function (domain, model, id, done) {
+    $.ajax({
+        method: 'POST',
+        url: exports.resolve(domain + ':///apis/v/' + model + '/' + id),
+        headers: {
+            'X-Action': 'bumpup'
+        },
+        dataType: 'json',
+        success: function (data) {
+            done(null, data);
+        },
+        error: function (xhr, status, err) {
+            done(err || status || xhr);
+        }
+    });
 };
 
 exports.transit = function (domain, model, id, action, done) {
