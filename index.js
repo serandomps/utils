@@ -1,3 +1,5 @@
+var qs = require('querystring');
+
 var BUMP_UP_THRESHOLD = 14 * 24 * 60 * 60 * 1000;
 
 var syncs = {};
@@ -344,32 +346,36 @@ exports.alias = function (path, done) {
     });
 };
 
-exports.data = function (options) {
-    if (!options) {
+exports.toData = function (data) {
+    if (!data) {
         return '';
-    }
-    var data = {
-        query: {},
-        sort: options.sort,
-        count: options.count
-    };
-    var name;
-    var value;
-    var query = options.query || {};
-    for (name in query) {
-        if (!query.hasOwnProperty(name)) {
-            continue;
-        }
-        if (name === '_') {
-            continue;
-        }
-        value = query[name];
-        data.query[name] = value;
     }
     return '?data=' + JSON.stringify(data);
 };
 
-exports.link = function (link) {
+exports.fromUrl = function (url) {
+    var index = url.indexOf('?');
+    if (index === -1) {
+        return {
+            path: url,
+            query: {}
+        }
+    }
+    return {
+        path: url.substring(0, index),
+        query: exports.fromQuery(url.substring(index + 1))
+    }
+};
+
+exports.toQuery = function (q) {
+    return qs.stringify(q);
+};
+
+exports.fromQuery = function (q) {
+    return qs.parse(q);
+};
+
+exports.links = function (link) {
     var o = {};
     var regex = /<([^>]+)>; rel="([^"]+)"/g;
     var m = regex.exec(link);
@@ -387,7 +393,7 @@ var next = function (o, url, done) {
         dataType: 'json',
         success: function (data, status, xhr) {
             o = o.concat(data);
-            var link = exports.link(xhr.getResponseHeader('Link'));
+            var link = exports.links(xhr.getResponseHeader('Link'));
             if (!link || !link.next) {
                 return done(null, o);
             }
@@ -448,32 +454,6 @@ exports.initials = function (text, max) {
         initials += text.charAt(i);
     }
     return initials;
-};
-
-exports.toQuery = function (options) {
-    var name;
-    var value;
-    var q = '';
-    var i;
-    options = to(options);
-    for (name in options) {
-        if (!options.hasOwnProperty(name)) {
-            continue;
-        }
-        if (name === '_') {
-            continue;
-        }
-        value = options[name];
-        if (!value) {
-            continue;
-        }
-        value = value instanceof Array ? value : [value];
-        for (i = 0; i < value.length; i++) {
-            q += q ? '&' : '';
-            q += name + '=' + value[i];
-        }
-    }
-    return q || '';
 };
 
 exports.groups = function () {

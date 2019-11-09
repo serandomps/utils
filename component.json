@@ -2,7 +2,12 @@
     "name": "utils",
     "description": "utils component",
     "local": [],
-    "scripts": ["index.js", "permissions.js"],
+    "scripts": [
+        "index.js",
+        "permissions.js"
+    ],
     "main": "index.js",
-    "dependencies": {}
+    "dependencies": {
+        "tj/node-querystring": "*"
+    }
 }
