@@ -220,7 +220,7 @@ exports.configs = function (name, done) {
         }
         $.ajax({
             method: 'GET',
-            url: exports.resolve('accounts:///apis/v/configs/' + id),
+            url: exports.resolve('www:///apis/v/configs/' + id),
             dataType: 'json',
             success: function (config) {
                 ran(null, config.value);
