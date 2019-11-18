@@ -502,8 +502,11 @@ exports.json = function (o) {
 };
 
 exports.loading = function (delay) {
+    if (!delay) {
+       delay = (delay === 0) ? 0 : 500;
+    }
     exports.emit('loader', 'start', {
-        delay: delay || 500
+        delay: delay
     });
 };
 
