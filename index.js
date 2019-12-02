@@ -456,6 +456,13 @@ exports.initials = function (text, max) {
     return initials;
 };
 
+exports.capitalize = function (text) {
+    if (!text) {
+        return text;
+    }
+    return text.charAt(0).toUpperCase() + text.slice(1);
+};
+
 exports.groups = function () {
     return _.keyBy(sera.configs.values.groups, 'name');
 };
