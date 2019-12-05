@@ -206,7 +206,7 @@ exports.query = function (url, o) {
 };
 
 exports.configs = function (name, done) {
-    exports.sync('configs:' + name, function (ran) {
+    exports.sync('model-configs:' + name, function (ran) {
         var configs = sera.configs;
         var values = configs.values;
         var value = values[name];
