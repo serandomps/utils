@@ -80,6 +80,58 @@ var workflows = {
                 }
             }
         }
+    },
+    'model-messages': {
+        transitions: {
+            sent: {
+                receive: 'received'
+            },
+            received: {
+                unreceive: 'sent'
+            }
+        },
+        permits: {
+            sent: {
+                groups: {
+                    admin: {
+                        actions: ['*'],
+                        visibility: ['*']
+                    }
+                },
+                model: {
+                    to: {
+                        user: {
+                            actions: ['read', 'receive', 'delete'],
+                            visibility: ['*']
+                        }
+                    }
+                },
+                user: {
+                    actions: ['read', 'update', 'delete'],
+                    visibility: ['*']
+                }
+            },
+            received: {
+                groups: {
+                    admin: {
+                        actions: ['*'],
+                        visibility: ['*']
+                    }
+                },
+                model: {
+                    to: {
+                        user: {
+                            actions: ['read', 'unreceive', 'delete'],
+                            visibility: ['*']
+                        }
+                    }
+                },
+                user: {
+                    actions: ['read'],
+                    visibility: ['*']
+                }
+            }
+        }
     }
 };
 
@@ -169,6 +221,15 @@ exports.format = function (str) {
     }
     str = str.replace(/%{2,2}/g, '%');
     return '' + str;
+};
+
+exports.users = function (name, done) {
+    return exports.configs('users', function (err, users) {
+        if (err) {
+            return done(err);
+        }
+        done(null, name ? users[name] : users);
+    });
 };
 
 exports.sync = function (id, run, done) {
@@ -510,7 +571,7 @@ exports.json = function (o) {
 
 exports.loading = function (delay) {
     if (!delay) {
-       delay = (delay === 0) ? 0 : 500;
+        delay = (delay === 0) ? 0 : 500;
     }
     exports.emit('loader', 'start', {
         delay: delay
