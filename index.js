@@ -730,11 +730,14 @@ exports.review = function (domain, model, o, done) {
     done(new Error('An unknown status ' + status));
 };
 
-exports.create = function (domain, model, creator, found, o, done) {
+exports.create = function (domain, model, creator, found, o, next, done) {
     if (!found || found.status === 'editing') {
         return creator(o, function (err, data) {
             if (err) {
                 return done(err);
+            }
+            if (!next(data, 'review')) {
+                return done(null, data);
             }
             exports.review(domain, model, data, function (err) {
                 if (err) {
@@ -751,6 +754,9 @@ exports.create = function (domain, model, creator, found, o, done) {
         creator(o, function (err, data) {
             if (err) {
                 return done(err);
+            }
+            if (!next(data, 'review')) {
+                return done(null, data);
             }
             exports.review(domain, model, data, function (err) {
                 if (err) {
