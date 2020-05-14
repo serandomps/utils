@@ -4,6 +4,10 @@ var BUMP_UP_THRESHOLD = 14 * 24 * 60 * 60 * 1000;
 
 var syncs = {};
 
+var host;
+
+var domain;
+
 var workflows = {
     model: {
         transitions: {
@@ -328,6 +332,24 @@ exports.subdomain = function () {
     url = url.substring(0, url.lastIndexOf('.'));
     subdomain = url.substring(0, url.lastIndexOf('.'));
     return subdomain;
+};
+
+exports.host = function () {
+    if (host) {
+        return host;
+    }
+    host = location.hostname;
+    return host;
+};
+
+exports.domain = function () {
+    if (domain) {
+        return domain;
+    }
+    var host = exports.host();
+    var parts = host.split('.');
+    domain = parts.slice(parts.length - 2).join('.');
+    return domain;
 };
 
 exports.origin = function (url) {
