@@ -372,7 +372,6 @@ exports.resolve = function (url) {
         return exports.origin() + suffix;
     }
     var server = sera.server;
-    subdomain += subdomain ? '.' : '';
     return server.replace('{subdomain}', subdomain) + suffix;
 };
 
