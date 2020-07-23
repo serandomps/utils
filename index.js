@@ -143,9 +143,24 @@ var subdomain;
 
 var listeners = {};
 
+var sizes = [
+    {key: 'x288', size: '288x162'},
+    {key: 'x160', size: '160x160'},
+    {key: 'x800', size: '800x450'}
+];
+
 var event = function (channel, event) {
     channel = listeners[channel] || (listeners[channel] = {});
     return channel[event] || (channel[event] = {on: [], once: []});
+};
+
+module.exports.later = function (done) {
+    return function () {
+        var args = Array.prototype.slice.call(arguments)
+        setTimeout(function () {
+            done.apply(null, args);
+        }, 0);
+    };
 };
 
 /**
@@ -271,21 +286,21 @@ exports.query = function (url, o) {
 };
 
 exports.configs = function (name, done) {
+    var configs = sera.configs;
+    var values = configs.values;
+    var value = values[name];
+    if (value) {
+        return done(null, value);
+    }
+    var ids = configs.ids;
+    var id = ids[name];
+    if (!id) {
+        return done();
+    }
     exports.sync('model-configs:' + name, function (ran) {
-        var configs = sera.configs;
-        var values = configs.values;
-        var value = values[name];
-        if (value) {
-            return ran(null, value);
-        }
-        var ids = configs.ids;
-        var id = ids[name];
-        if (!id) {
-            return ran();
-        }
         $.ajax({
             method: 'GET',
-            url: exports.resolve('www:///apis/v/configs/' + id),
+            url: exports.resolve('apis:///v/configs/' + id),
             dataType: 'json',
             success: function (config) {
                 ran(null, config.value);
@@ -501,6 +516,45 @@ exports.cdn = function (type, path, done) {
     });
 };
 
+exports.cdns = function (items, done) {
+    items = items instanceof Array ? items : [items];
+    async.each(items, function (item, did) {
+        did = exports.later(did);
+        var images = item.images;
+        if (!images) {
+            return did();
+        }
+        var o = [];
+        async.forEachOf(images, function (image, index, pushed) {
+            pushed = exports.later(pushed);
+            var entry = {
+                id: image,
+                index: index
+            };
+            async.each(sizes, function (o, calculated) {
+                calculated = exports.later(calculated);
+                exports.cdn('images', '/images/' + o.size + '/' + image, function (err, url) {
+                    if (err) {
+                        return calculated(err);
+                    }
+                    entry[o.key] = url;
+                    calculated();
+                });
+            }, function (err) {
+                if (err) return pushed(err);
+                o[index] = entry;
+                pushed();
+            });
+        }, function (err) {
+            if (err) {
+                return did(err);
+            }
+            item._.images = o;
+            did();
+        });
+    }, done);
+};
+
 var to = function (o) {
     var oo = {};
     Object.keys(o).forEach(function (name) {
@@ -611,10 +665,10 @@ exports.bumpable = function (o) {
     return Date.now() - new Date(o.updatedAt) >= BUMP_UP_THRESHOLD;
 };
 
-exports.bumpup = function (domain, model, id, done) {
+exports.bumpup = function (model, id, done) {
     $.ajax({
         method: 'POST',
-        url: exports.resolve(domain + ':///apis/v/' + model + '/' + id),
+        url: exports.resolve('apis:///v/' + model + '/' + id),
         headers: {
             'X-Action': 'bumpup'
         },
@@ -628,10 +682,10 @@ exports.bumpup = function (domain, model, id, done) {
     });
 };
 
-exports.transit = function (domain, model, id, action, done) {
+exports.transit = function (model, id, action, done) {
     $.ajax({
         method: 'POST',
-        url: exports.resolve(domain + ':///apis/v/' + model + '/' + id),
+        url: exports.resolve('apis:///v/' + model + '/' + id),
         headers: {
             'X-Action': 'transit'
         },
@@ -649,23 +703,23 @@ exports.transit = function (domain, model, id, action, done) {
     });
 };
 
-exports.publish = function (domain, model, o, done) {
+exports.publish = function (model, o, done) {
     var status = o.status;
     if (status === 'published' || status === 'unpublished') {
         return done();
     }
     if (status === 'editing') {
-        exports.transit(domain, model, o.id, 'review', function (err) {
+        exports.transit(model, o.id, 'review', function (err) {
             if (err) {
                 return done(err);
             }
             o.status = 'reviewing';
-            exports.transit(domain, model, o.id, 'approve', function (err) {
+            exports.transit(model, o.id, 'approve', function (err) {
                 if (err) {
                     return done(err);
                 }
                 o.status = 'unpublished';
-                exports.transit(domain, model, o.id, 'publish', function (err) {
+                exports.transit(model, o.id, 'publish', function (err) {
                     if (err) {
                         return done(err);
                     }
@@ -677,12 +731,12 @@ exports.publish = function (domain, model, o, done) {
         return;
     }
     if (status === 'reviewing') {
-        exports.transit(domain, model, o.id, 'approve', function (err) {
+        exports.transit(model, o.id, 'approve', function (err) {
             if (err) {
                 return done(err);
             }
             o.status = 'unpublished';
-            exports.transit(domain, model, o.id, 'publish', function (err) {
+            exports.transit(model, o.id, 'publish', function (err) {
                 if (err) {
                     return done(err);
                 }
@@ -695,18 +749,18 @@ exports.publish = function (domain, model, o, done) {
     done(new Error('An unknown status ' + status));
 };
 
-exports.edit = function (domain, model, o, done) {
+exports.edit = function (model, o, done) {
     var status = o.status;
     if (status === 'edit') {
         return done();
     }
     if (status === 'published') {
-        exports.transit(domain, model, o.id, 'unpublish', function (err) {
+        exports.transit(model, o.id, 'unpublish', function (err) {
             if (err) {
                 return done(err);
             }
             o.status = 'unpublished';
-            exports.transit(domain, model, o.id, 'edit', function (err) {
+            exports.transit(model, o.id, 'edit', function (err) {
                 if (err) {
                     return done(err);
                 }
@@ -717,7 +771,7 @@ exports.edit = function (domain, model, o, done) {
         return;
     }
     if (status === 'unpublished') {
-        return exports.transit(domain, model, o.id, 'edit', function (err) {
+        return exports.transit(model, o.id, 'edit', function (err) {
             if (err) {
                 return done(err);
             }
@@ -726,7 +780,7 @@ exports.edit = function (domain, model, o, done) {
         });
     }
     if (status === 'reviewing') {
-        return exports.transit(domain, model, o.id, 'reject', function (err) {
+        return exports.transit(model, o.id, 'reject', function (err) {
             if (err) {
                 return done(err);
             }
@@ -737,10 +791,10 @@ exports.edit = function (domain, model, o, done) {
     done(new Error('An unknown status ' + status));
 };
 
-exports.review = function (domain, model, o, done) {
+exports.review = function (model, o, done) {
     var status = o.status;
     if (status === 'editing') {
-        return exports.transit(domain, model, o.id, 'review', function (err) {
+        return exports.transit(model, o.id, 'review', function (err) {
             if (err) {
                 return done(err);
             }
@@ -751,7 +805,7 @@ exports.review = function (domain, model, o, done) {
     done(new Error('An unknown status ' + status));
 };
 
-exports.create = function (domain, model, creator, found, o, next, done) {
+exports.create = function (model, creator, found, o, next, done) {
     if (!found || found.status === 'editing') {
         return creator(o, function (err, data) {
             if (err) {
@@ -760,7 +814,7 @@ exports.create = function (domain, model, creator, found, o, next, done) {
             if (!next(data, 'review')) {
                 return done(null, data);
             }
-            exports.review(domain, model, data, function (err) {
+            exports.review(model, data, function (err) {
                 if (err) {
                     return done(err);
                 }
@@ -768,7 +822,7 @@ exports.create = function (domain, model, creator, found, o, next, done) {
             });
         });
     }
-    exports.edit(domain, model, found, function (err) {
+    exports.edit(model, found, function (err) {
         if (err) {
             return done(err);
         }
@@ -779,7 +833,7 @@ exports.create = function (domain, model, creator, found, o, next, done) {
             if (!next(data, 'review')) {
                 return done(null, data);
             }
-            exports.review(domain, model, data, function (err) {
+            exports.review(model, data, function (err) {
                 if (err) {
                     return done(err);
                 }
@@ -789,13 +843,13 @@ exports.create = function (domain, model, creator, found, o, next, done) {
     });
 };
 
-exports.traverse = function (domain, model, actions, found, o, done) {
+exports.traverse = function (model, actions, found, o, done) {
     if (!found) {
         o.creator(function (err, found) {
             if (err) {
                 return done(err);
             }
-            exports.traverse(domain, model, actions, found, o, done);
+            exports.traverse(model, actions, found, o, done);
         });
         return;
     }
@@ -804,70 +858,70 @@ exports.traverse = function (domain, model, actions, found, o, done) {
     }
     var action = actions.shift();
     if (action === 'edit') {
-        exports.transit(domain, model, found.id, 'edit', function (err) {
+        exports.transit(model, found.id, 'edit', function (err) {
             if (err) {
                 return done(err);
             }
             found.status = 'editing';
             if (!o.creator) {
-                return exports.traverse(domain, model, actions, found, o, done);
+                return exports.traverse(model, actions, found, o, done);
             }
             o.creator(function (err, found) {
                 if (err) {
                     return done(err);
                 }
-                exports.traverse(domain, model, actions, found, o, done);
+                exports.traverse(model, actions, found, o, done);
             });
         });
         return;
     }
     if (action === 'review') {
-        exports.transit(domain, model, found.id, 'review', function (err) {
+        exports.transit(model, found.id, 'review', function (err) {
             if (err) {
                 return done(err);
             }
             found.status = 'reviewing';
-            exports.traverse(domain, model, actions, found, o, done);
+            exports.traverse(model, actions, found, o, done);
         });
         return;
     }
     if (action === 'reject') {
-        exports.transit(domain, model, found.id, 'reject', function (err) {
+        exports.transit(model, found.id, 'reject', function (err) {
             if (err) {
                 return done(err);
             }
             found.status = 'editing';
-            exports.traverse(domain, model, actions, found, o, done);
+            exports.traverse(model, actions, found, o, done);
         });
         return;
     }
     if (action === 'approve') {
-        exports.transit(domain, model, found.id, 'approve', function (err) {
+        exports.transit(model, found.id, 'approve', function (err) {
             if (err) {
                 return done(err);
             }
             found.status = 'unpublished';
-            exports.traverse(domain, model, actions, found, o, done);
+            exports.traverse(model, actions, found, o, done);
         });
         return;
     }
     if (action === 'unpublish') {
-        exports.transit(domain, model, found.id, 'unpublish', function (err) {
+        exports.transit(model, found.id, 'unpublish', function (err) {
             if (err) {
                 return done(err);
             }
             found.status = 'unpublished';
-            exports.traverse(domain, model, actions, found, o, done);
+            exports.traverse(model, actions, found, o, done);
         });
         return;
     }
     if (action === 'publish') {
-        exports.transit(domain, model, found.id, 'publish', function (err) {
+        exports.transit(model, found.id, 'publish', function (err) {
             if (err) {
                 return done(err);
             }
             found.status = 'published';
-            exports.traverse(domain, model, actions, found, o, done);
+            exports.traverse(model, actions, found, o, done);
         });
         return;
     }
