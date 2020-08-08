@@ -450,6 +450,10 @@ exports.toData = function (data) {
     return '?data=' + JSON.stringify(data);
 };
 
+exports.pushState = function (url, title, data) {
+    window.history.pushState(data, title, url);
+};
+
 exports.fromUrl = function (url) {
     var index = url.indexOf('?');
     if (index === -1) {
