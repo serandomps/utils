@@ -211,6 +211,10 @@ exports.workflow = function (name, done) {
     done(null, workflows[name]);
 };
 
+exports.sanitize = function (val) {
+    return html_sanitize(val);
+};
+
 exports.format = function (str) {
     var re = /(%?)(%([jds]))/g;
     var args = Array.prototype.slice.call(arguments, 1);
