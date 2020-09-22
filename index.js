@@ -212,7 +212,7 @@ exports.workflow = function (name, done) {
 };
 
 exports.sanitize = function (val) {
-    return html_sanitize(val);
+    return val && html_sanitize(val);
 };
 
 exports.format = function (str) {
