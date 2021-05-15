@@ -8,6 +8,7 @@
     ],
     "main": "index.js",
     "dependencies": {
-        "tj/node-querystring": "*"
+        "tj/node-querystring": "*",
+        "serandomps/watcher": "master"
     }
 }

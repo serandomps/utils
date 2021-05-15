@@ -1,4 +1,5 @@
 var qs = require('querystring');
+var watcher = require('watcher');
 
 var BUMP_UP_THRESHOLD = 14 * 24 * 60 * 60 * 1000;
 
@@ -141,18 +142,11 @@ var workflows = {
 
 var subdomain;
 
-var listeners = {};
-
 var sizes = [
     {key: 'x288', size: '288x162'},
     {key: 'x160', size: '160x160'},
     {key: 'x800', size: '800x450'}
 ];
-
-var event = function (channel, event) {
-    channel = listeners[channel] || (listeners[channel] = {});
-    return channel[event] || (channel[event] = {on: [], once: []});
-};
 
 module.exports.later = function (done) {
     return function () {
@@ -161,50 +155,6 @@ module.exports.later = function (done) {
             done.apply(null, args);
         }, 0);
     };
-};
-
-/**
- * Registers an event listner for the specified channel
- * @param ch channel name
- * @param e event name
- * @param done event callback
- */
-module.exports.on = function (ch, e, done) {
-    event(ch, e).on.push(done);
-};
-
-module.exports.once = function (ch, e, done) {
-    event(ch, e).once.push(done);
-};
-
-module.exports.off = function (ch, e, done) {
-    var arr = event(ch, e);
-    var idx = arr.on.indexOf(done);
-    if (idx !== -1) {
-        arr.on.splice(idx, 1);
-    }
-    idx = arr.once.indexOf(done);
-    if (idx !== -1) {
-        arr.once.splice(idx, 1);
-    }
-};
-
-/**
- * Emits the specified event on the specified channel
- * @param ch channel name
- * @param e event name
- * @param data event data
- */
-module.exports.emit = function (ch, e, data) {
-    var o = event(ch, e);
-    var args = Array.prototype.slice.call(arguments, 2);
-    o.on.forEach(function (done) {
-        done.apply(done, args);
-    });
-    o.once.forEach(function (done) {
-        done.apply(done, args);
-    });
-    o.once = [];
 };
 
 exports.workflow = function (name, done) {
@@ -656,7 +606,7 @@ exports.loading = function (delay) {
     if (!delay) {
         delay = (delay === 0) ? 0 : 500;
     }
-    exports.emit('loader', 'start', {
+    watcher.emit('loader', 'start', {
         delay: delay
     });
 };
@@ -666,7 +616,7 @@ exports.is = function (group) {
 };
 
 exports.loaded = function () {
-    exports.emit('loader', 'end', {});
+    watcher.emit('loader', 'end', {});
 };
 
 exports.bumpable = function (o) {
